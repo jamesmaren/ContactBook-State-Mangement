@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:state_management_flutter/home_page.dart';
+import 'package:uuid/uuid.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -17,34 +18,48 @@ void main() {
 }
 
 class Contact {
+  final String id;
   final String name;
-  const Contact({
+  Contact({
     required this.name,
-  });
+  }) : id = const Uuid().v4();
 }
 
-class ContactBook {
-  ContactBook._sharedInstance();
+//convert ContactBook To ValueNotifier<List<Contact>>
+
+class ContactBook extends ValueNotifier<List<Contact>> {
+  ContactBook._sharedInstance() : super([]);
   static final ContactBook _shared = ContactBook._sharedInstance();
   factory ContactBook() => _shared;
 
   final List<Contact> _contacts = []; // we need a contacts storage
 
-  int get length => _contacts.length; // expose how many contacts we have
+//after Value notifier update to code, update length getter to use value.length
+  int get length => value.length; // expose how many contacts we have
 
   //simple add function
   void add({required Contact contact}) {
-    _contacts.add(contact);
+    //after Value notifier update to code, update "add(...)" function to use "value" instead
+    final contacts = value;
+    contacts.add(contact);
+    value = contacts;
+    notifyListeners();
   }
 
   //Remove function on ContactBook
   void remove({required Contact contact}) {
-    _contacts.remove(contact);
+    //after Value notifier update to code, Update"remove(..)function to use "valuye"
+    final contacts = value;
+    if (contacts.contains(contact)) {
+      contacts.remove(contact);
+      notifyListeners();
+    }
   }
 
 //function to retrieve contacts with index
+//after Value notifier update to code, Update "contact(..)" function to use "value" instead
   Contact? contact({required int atIndex}) =>
-      _contacts.length > atIndex ? _contacts[atIndex] : null;
+      value.length > atIndex ? value[atIndex] : null;
 }
 
 class HomePage extends StatelessWidget {
@@ -53,23 +68,40 @@ class HomePage extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    final contactBook = ContactBook();
     return Scaffold(
       appBar: AppBar(
         title: const Text("Home Page"),
       ),
 
       //use listView.Builder for the body of the Scaffold
-      body: ListView.builder(
-        itemCount: contactBook.length,
-        //listTile Per Contact
-        itemBuilder: (context, index) {
-          final contact = contactBook.contact(atIndex: index)!;
-          return ListTile(
-            title: Text(contact.name),
-          );
-        },
-      ),
+      //after valuelistenerbuilder wrap , we use it as its body
+      body: ValueListenableBuilder(
+          //return listview inside valueListenableBuilder
+          valueListenable: ContactBook(),
+          builder: (contact, value, child) {
+            final contacts = value as List<Contact>;
+            return ListView.builder(
+              itemCount: contacts.length,
+              //listTile Per Contact
+              itemBuilder: (context, index) {
+                final contact = contacts[index];
+                return Dismissible(
+                  //make your cells dismissable using dismissible and valueke(contact.id)
+                  onDismissed: (direction) {
+                    contacts.remove(contact);
+                  },
+                  key: ValueKey(contact.id),
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 6.0,
+                    child: ListTile(
+                      title: Text(contact.name),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
 
       // we need way to add new contacts
       floatingActionButton: FloatingActionButton(
